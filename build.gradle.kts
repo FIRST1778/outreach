@@ -2,6 +2,7 @@ import edu.wpi.first.gradlerio.GradleRIOPlugin
 import edu.wpi.first.gradlerio.frc.FRCJavaArtifact
 import edu.wpi.first.gradlerio.frc.RoboRIO
 import edu.wpi.first.toolchain.NativePlatforms
+import io.gitlab.arturbosch.detekt.detekt
 import jaci.gradle.deploy.artifact.ArtifactsExtension
 import jaci.gradle.deploy.artifact.FileTreeArtifact
 import jaci.gradle.deploy.target.TargetsExtension
@@ -18,7 +19,7 @@ plugins {
     id("io.gitlab.arturbosch.detekt") version "1.1.1"
 }
 
-val ROBOT_MAIN_CLASS = "org.frc1778.robot.Main"
+val ROBOT_MAIN_CLASS = "org.frc1778.robot.MainKt"
 
 deploy {
     targets {
@@ -41,9 +42,10 @@ dependencies {
 
     implementation("com.google.guava:guava:28.1-jre")
     implementation("com.google.code.gson:gson:2.8.6")
+    // implementation("com.github.MTHSRoboticsClub:freezylib:-SNAPSHOT")
 
-    wpi.deps.wpilib().forEach { implementation(it) }
-    wpi.deps.vendor.java().forEach { implementation(it) }
+    wpi.deps.wpilib().forEach { compile(it) }
+    wpi.deps.vendor.java().forEach { compile(it) }
     wpi.deps.vendor.jni(NativePlatforms.roborio).forEach { nativeZip(it) }
     wpi.deps.vendor.jni(NativePlatforms.desktop).forEach { nativeDesktopZip(it) }
 
@@ -62,10 +64,14 @@ detekt {
 
 tasks.compileKotlin {
     dependsOn("spotlessApply")
+    kotlinOptions {
+        jvmTarget = "1.8"
+        freeCompilerArgs += "-Xjvm-default=compatibility"
+    }
 }
 
 tasks.jar {
-    doLast {
+    doFirst {
         from(configurations.compile.get().map {
             if (it.isDirectory) it else zipTree(it)
         })
@@ -77,7 +83,9 @@ fun TargetsExtension.roboRIO() =
     target("roboRIO", RoboRIO::class.java, closureOf<RoboRIO> { team = frc.teamNumber })
 
 fun ArtifactsExtension.frcJavaArtifact() =
-    artifact("frcJava", FRCJavaArtifact::class.java, closureOf<FRCJavaArtifact> { targets.add("roboRIO") })
+    artifact("frcJava", FRCJavaArtifact::class.java, closureOf<FRCJavaArtifact> {
+        targets.add("roboRIO")
+    })
 
 fun ArtifactsExtension.frcStaticFileDeploy() =
     fileTreeArtifact("frcStaticFileDeploy", closureOf<FileTreeArtifact> {
